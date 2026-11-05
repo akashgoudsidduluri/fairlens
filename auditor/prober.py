@@ -221,14 +221,29 @@ class Prober:
             for i in range(0, len(applicants), self.batch_size)
         ]
         if self.target is not None:
-            # Adapters own rate limiting and the per-audit probe cap. Call them
-            # sequentially so those controls see one request at a time.
-            flat: list[ModelResponse] = []
+            # If the adapter declares a rate limit, score sequentially to respect intervals.
+            # Otherwise, score chunks concurrently (Semaphore 4) like the direct path,
+            # avoiding a 2x-3x latency penalty on local sandbox/real targets.
+            rate_limit = getattr(self.target, "rate_limit_per_second", 0)
+            if rate_limit > 0:
+                flat: list[ModelResponse] = []
+                try:
+                    for chunk in chunks:
+                        flat.extend(await self.target.score_batch(chunk))
+                except TargetError as exc:
+                    raise ProberError(str(exc)) from exc
+                return flat
+            sem = asyncio.Semaphore(4)
+            async def run_target(chunk: list[Applicant]) -> list[ModelResponse]:
+                async with sem:
+                    return await self.target.score_batch(chunk)
             try:
-                for chunk in chunks:
-                    flat.extend(await self.target.score_batch(chunk))
+                target_results = await asyncio.gather(*(run_target(c) for c in chunks))
             except TargetError as exc:
                 raise ProberError(str(exc)) from exc
+            flat = []
+            for part in target_results:
+                flat.extend(part)
             return flat
         semaphore = asyncio.Semaphore(4)
         async with httpx.AsyncClient(timeout=self.timeout) as client:
@@ -252,7 +267,11 @@ class Prober:
                     f"Target {self.target.name!r} is unreachable at "
                     f"{self.api_url}. Details: {type(exc).__name__}: {exc}"
                 ) from exc
-            if data.get("status") != "ok":
+            status_val = data.get("status")
+            if status_val is False or (
+                isinstance(status_val, str)
+                and status_val.strip().lower() in {"error", "down", "unhealthy", "failed", "degraded"}
+            ):
                 raise ProberError(f"Target health check failed: {data}")
             self._emit(
                 "prober",

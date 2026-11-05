@@ -49,17 +49,24 @@ export function AgentLanes({
         </div>
         <span
           className={cn(
-            "flex items-center gap-1.5 font-mono text-[9px] uppercase tracking-[0.16em]",
-            live ? "text-accent" : "text-muted",
+            "flex items-center gap-2 rounded-full border px-2.5 py-0.5 font-mono text-[9px] uppercase tracking-[0.16em]",
+            live
+              ? "border-accent/50 bg-accent/15 text-accent shadow-[0_0_12px_rgba(94,234,212,0.3)]"
+              : "border-line bg-canvas text-muted",
           )}
         >
-          <span
-            className={cn(
-              "h-1.5 w-1.5 rounded-full",
-              live ? "bg-accent animate-pulse-line" : "bg-muted",
+          <span className="relative flex h-2 w-2">
+            {live && (
+              <span className="absolute inline-flex h-full w-full animate-neon-ping rounded-full bg-accent opacity-90" />
             )}
-            aria-hidden="true"
-          />
+            <span
+              className={cn(
+                "relative inline-flex h-2 w-2 rounded-full",
+                live ? "bg-accent shadow-[0_0_8px_#5eead4]" : "bg-muted",
+              )}
+              aria-hidden="true"
+            />
+          </span>
           {status}
         </span>
       </div>
@@ -75,28 +82,38 @@ export function AgentLanes({
               title={meta.blurb}
               aria-current={active ? "step" : undefined}
               className={cn(
-                "rounded-lg border p-2.5 transition-colors",
+                "rounded-lg border p-2.5 transition-all duration-300",
                 active
-                  ? "border-accent/45 bg-accent/[0.055]"
-                  : "border-line/60 bg-canvas/35",
+                  ? "border-accent/80 bg-accent/[0.09] shadow-[0_0_24px_rgba(94,234,212,0.22)] ring-1 ring-accent/60"
+                  : "border-line/60 bg-canvas/35 hover:border-line/80",
               )}
             >
               <div className="flex items-center gap-1.5">
                 <Icon
                   className={cn(
                     "h-3.5 w-3.5",
-                    active ? "text-accent" : "text-muted/70",
+                    active
+                      ? lane.id === "prober"
+                        ? "text-accent animate-spin [animation-duration:2.5s] drop-shadow-[0_0_8px_rgba(94,234,212,0.8)]"
+                        : "text-accent animate-strong-pulse drop-shadow-[0_0_8px_rgba(94,234,212,0.8)]"
+                      : "text-muted/70",
                   )}
                   aria-hidden="true"
                 />
                 <span
                   className={cn(
                     "text-[11px] font-medium",
-                    active ? "text-ink" : "text-muted",
+                    active ? "text-ink font-semibold" : "text-muted",
                   )}
                 >
                   {meta.label}
                 </span>
+                {active && (
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-neon-ping rounded-full bg-accent opacity-90" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_#5eead4]" />
+                  </span>
+                )}
                 <span className="ml-auto font-mono text-[9px] text-muted/60">
                   {lane.count}
                 </span>

@@ -14,6 +14,7 @@ import { BudgetPanel } from "@/components/arena/BudgetPanel";
 import { EarlyStopBanner } from "@/components/arena/EarlyStopBanner";
 import { EvidenceMeter } from "@/components/arena/EvidenceMeter";
 import { FlippedTray } from "@/components/arena/FlippedTray";
+import { InvestigationPipeline } from "@/components/arena/InvestigationPipeline";
 import { TwinStream } from "@/components/arena/TwinStream";
 import { ReportPanel } from "@/components/report/ReportPanel";
 import { Badge } from "@/components/ui/badge";
@@ -134,7 +135,19 @@ export function ArenaView({
               ? label
               : `model ${record?.model_id ?? "—"}`}
           </Badge>
-          <Badge variant={STATUS_VARIANT[stream.status as StreamStatus] ?? "outline"}>
+          <Badge
+            variant={STATUS_VARIANT[stream.status as StreamStatus] ?? "outline"}
+            className={cn(
+              stream.status === "open" &&
+                "border-accent/60 bg-accent/20 text-accent shadow-[0_0_15px_rgba(94,234,212,0.35)] gap-1.5",
+            )}
+          >
+            {stream.status === "open" && (
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-neon-ping rounded-full bg-accent opacity-90" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-accent shadow-[0_0_8px_#5eead4]" />
+              </span>
+            )}
             {stream.status}
           </Badge>
         </div>
@@ -202,6 +215,16 @@ export function ArenaView({
         )}
 
         {playbackBar}
+      </div>
+
+      <div className="mt-4">
+        <InvestigationPipeline
+          status={stream.status as StreamStatus}
+          probeEvents={stream.probeEvents}
+          agentEvents={stream.agentEvents}
+          record={record}
+          isCompleted={Boolean(stream.done || record?.result)}
+        />
       </div>
 
       <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1.55fr)_minmax(360px,1fr)]">
