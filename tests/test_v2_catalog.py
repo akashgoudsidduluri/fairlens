@@ -168,6 +168,32 @@ def test_endpoint_check_reads_health_and_models_over_http():
     assert seen["key"] == "secret"
 
 
+def test_endpoint_check_reports_sandbox_model_count_as_model_ids():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"status": "ok", "models": 15})
+
+    result = check_endpoint(
+        EndpointCheckRequest(base_url="http://127.0.0.1:8010"),
+        environ={},
+        transport=httpx.MockTransport(handler),
+    )
+    assert result.ok is True
+    assert result.models == [str(index) for index in range(1, 16)]
+
+
+def test_endpoint_check_ignores_non_positive_model_counts():
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"status": "ok", "models": 0})
+
+    result = check_endpoint(
+        EndpointCheckRequest(base_url="http://127.0.0.1:8010"),
+        environ={},
+        transport=httpx.MockTransport(handler),
+    )
+    assert result.ok is True
+    assert result.models == []
+
+
 def test_endpoint_check_reports_http_failure_without_leaking_the_secret():
     def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(503, text="down")

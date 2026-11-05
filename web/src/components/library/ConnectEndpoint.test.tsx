@@ -52,7 +52,7 @@ describe("ConnectEndpoint", () => {
       health_path: "/health",
       auth_env_var: null,
       auth_header: "X-API-Key",
-      probe_cap: 5000,
+      probe_cap: 100000,
     });
     await screen.findByText(/endpoint answered the health check/);
     expect(start).toBeEnabled();
@@ -141,5 +141,94 @@ describe("ConnectEndpoint", () => {
       token_env: "LENDER_KEY",
     });
     expect(JSON.stringify(spec)).not.toContain("secret");
+  });
+
+  it("fills a preset with its query params and supported probes", async () => {
+    const user = userEvent.setup();
+    render(<ConnectEndpoint onStarted={vi.fn()} />);
+
+    await user.click(screen.getByRole("button", { name: /UCI credit default/i }));
+
+    expect(screen.getByLabelText("Endpoint URL")).toHaveValue(
+      "http://127.0.0.1:8030",
+    );
+    expect(screen.getByLabelText(/Query params/)).toHaveValue(
+      "model=uci_credit_default",
+    );
+    expect(screen.getByLabelText(/Probe cap/)).toHaveValue(100000);
+    expect(screen.getByRole("button", { name: "gender" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(
+      screen.getByRole("button", { name: "pincode_group" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("sends query params and capabilities for the selected preset", async () => {
+    const user = userEvent.setup();
+    const onStarted = vi.fn();
+    render(<ConnectEndpoint onStarted={onStarted} />);
+
+    await user.click(screen.getByRole("button", { name: /UCI Adult income/i }));
+    checkEndpoint.mockResolvedValue({
+      ok: true,
+      status_code: 200,
+      detail: "endpoint answered the health check",
+      latency_ms: 30,
+      models: ["adult_income", "uci_credit_default"],
+    });
+    await user.click(screen.getByRole("button", { name: /check endpoint/i }));
+
+    expect(checkEndpoint).toHaveBeenCalledWith({
+      base_url: "http://127.0.0.1:8030",
+      health_path: "/health",
+      auth_env_var: null,
+      auth_header: "X-API-Key",
+      probe_cap: 100000,
+    });
+
+    startAudit.mockResolvedValue({
+      id: "preset",
+      events_url: "/audits/preset/events",
+      result_url: "/audits/preset",
+    });
+    await user.click(screen.getByRole("button", { name: /start audit/i }));
+
+    const spec = startAudit.mock.calls[0][0].target_spec as Record<
+      string,
+      unknown
+    >;
+    expect(spec.request).toMatchObject({
+      method: "POST",
+      path: "/score_batch",
+      query: { model: "adult_income" },
+    });
+    expect(spec.capabilities).toEqual({
+      supported_probes: ["gender"],
+      supports_mitigation: false,
+    });
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith("preset"));
+  });
+
+  it("re-locks Start Audit when a preset is applied after a pass", async () => {
+    const user = userEvent.setup();
+    render(<ConnectEndpoint onStarted={vi.fn()} />);
+    await user.type(screen.getByLabelText("Endpoint URL"), "https://lender.test");
+    checkEndpoint.mockResolvedValue({
+      ok: true,
+      detail: "endpoint answered the health check",
+      latency_ms: 10,
+      models: [],
+    });
+    await user.click(screen.getByRole("button", { name: /check endpoint/i }));
+    await screen.findByText(/endpoint answered the health check/);
+    expect(screen.getByRole("button", { name: /start audit/i })).toBeEnabled();
+
+    await user.click(screen.getByRole("button", { name: /Sandbox model 2/i }));
+    expect(screen.getByRole("button", { name: /start audit/i })).toBeDisabled();
+    expect(
+      screen.getByText(/run the health check to unlock/i),
+    ).toBeInTheDocument();
   });
 });
