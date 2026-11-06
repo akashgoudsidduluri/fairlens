@@ -12,7 +12,9 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
+import warnings
 import joblib
+from sklearn.exceptions import InconsistentVersionWarning
 import numpy as np
 import pandas as pd
 
@@ -60,6 +62,12 @@ def artifact_path(model_name: str) -> Path:
 
 
 @lru_cache(maxsize=4)
+def self_load_artifact(path: Path) -> Any:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", InconsistentVersionWarning)
+        return joblib.load(path)
+
+
 def load_real_model(model_name: str) -> RealModel:
     path = metrics_path(model_name)
     if not path.exists():
@@ -81,7 +89,7 @@ def load_real_model(model_name: str) -> RealModel:
     )
     return RealModel(
         name=model_name,
-        pipeline=joblib.load(artifact),
+        pipeline=self_load_artifact(artifact),
         metrics=metrics,
         profile=profile,
     )
