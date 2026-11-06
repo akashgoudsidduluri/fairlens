@@ -40,6 +40,8 @@ SUITE_B_MODELS = range(8, 16)
 REAL_TARGETS = (
     ("uci_credit_default", "targets/real/uci-credit-default.yaml"),
     ("adult_income", "targets/real/adult-income.yaml"),
+    ("uci_credit_gbm", "targets/real/uci-credit-gbm.yaml"),
+    ("adult_logistic", "targets/real/adult-logistic.yaml"),
 )
 ALL_PROBES = ["gender", "pincode_group", "name_group", "intersectional"]
 
@@ -62,7 +64,7 @@ def _holdout_metric(model_name: str) -> str | None:
     return f"holdout accuracy {accuracy:.4f}"
 
 
-ACRONYMS = {"uci": "UCI", "llm": "LLM", "api": "API"}
+ACRONYMS = {"uci": "UCI", "llm": "LLM", "api": "API", "gbm": "GBM", "rf": "RF"}
 
 
 def _pretty_name(model_name: str) -> str:

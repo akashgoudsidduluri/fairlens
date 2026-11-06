@@ -119,7 +119,7 @@ def score_applicants(model_name: str, applicants: list[Applicant]) -> list[Model
             )
         rows.append(row)
     frame = pd.DataFrame(rows)
-    if model_name == "uci_credit_default":
+    if "credit" in model_name:
         probability_good = 1.0 - model.pipeline.predict_proba(frame)[:, 1]
     else:
         probability_good = model.pipeline.predict_proba(frame)[:, 1]

@@ -1,6 +1,6 @@
 {
   "model": "uci_credit_default",
-  "trained_at": "2026-10-27T20:03:29.909205+00:00",
+  "trained_at": "2026-11-06T09:15:17.548103+00:00",
   "seed": 42,
   "test_size": 0.2,
   "rows_total": 30000,
@@ -2589,7 +2589,7 @@
     "doi": "10.24432/C55S3H",
     "url": "https://archive.ics.uci.edu/static/public/350/default+of+credit+card+clients.zip",
     "sha256": "632830e5434829d35fd0eb50cf68e0070b43cd62ce5efaae9b689de3626bb614",
-    "cache": "data\\real\\uci_credit_default.csv"
+    "cache": "data/real/uci_credit_default.csv"
   },
   "dataset_sha256": "632830e5434829d35fd0eb50cf68e0070b43cd62ce5efaae9b689de3626bb614",
   "artifact": "credit_logistic.joblib"

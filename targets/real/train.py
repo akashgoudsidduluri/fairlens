@@ -65,12 +65,28 @@ MODELS = {
         "features": CREDIT_FEATURES,
         "label": "credit default next month (1 = default)",
         "favorable": "no default",
+        "dataset": "uci_credit_default",
+    },
+    "uci_credit_gbm": {
+        "artifact": "credit_gbm.joblib",
+        "features": CREDIT_FEATURES,
+        "label": "credit default next month (1 = default)",
+        "favorable": "no default",
+        "dataset": "uci_credit_default",
     },
     "adult_income": {
         "artifact": "adult_gbm.joblib",
         "features": ADULT_NUMERIC + ADULT_CATEGORICAL,
         "label": "income > 50K (1 = above 50K)",
         "favorable": "income > 50K",
+        "dataset": "adult_income",
+    },
+    "adult_logistic": {
+        "artifact": "adult_logistic.joblib",
+        "features": ADULT_NUMERIC + ADULT_CATEGORICAL,
+        "label": "income > 50K (1 = above 50K)",
+        "favorable": "income > 50K",
+        "dataset": "adult_income",
     },
 }
 
@@ -129,6 +145,22 @@ def _fit_credit(train: pd.DataFrame) -> Pipeline:
     )
 
 
+def _fit_credit_gbm(train: pd.DataFrame) -> Pipeline:
+    return Pipeline(
+        [
+            (
+                "model",
+                HistGradientBoostingClassifier(
+                    max_iter=200,
+                    learning_rate=0.08,
+                    max_leaf_nodes=31,
+                    random_state=SEED,
+                ),
+            ),
+        ]
+    )
+
+
 def _fit_adult(train: pd.DataFrame) -> Pipeline:
     preprocess = ColumnTransformer(
         [
@@ -156,9 +188,31 @@ def _fit_adult(train: pd.DataFrame) -> Pipeline:
     )
 
 
+def _fit_adult_logistic(train: pd.DataFrame) -> Pipeline:
+    preprocess = ColumnTransformer(
+        [
+            ("num", StandardScaler(), ADULT_NUMERIC),
+            (
+                "cat",
+                OneHotEncoder(handle_unknown="ignore", sparse_output=False),
+                ADULT_CATEGORICAL,
+            ),
+        ]
+    )
+    return Pipeline(
+        [
+            ("prep", preprocess),
+            (
+                "model",
+                LogisticRegression(max_iter=2000, solver="lbfgs", random_state=SEED),
+            ),
+        ]
+    )
+
+
 def _prob_good(model_name: str, pipeline: Pipeline, frame: pd.DataFrame) -> np.ndarray:
     probability = pipeline.predict_proba(frame[MODELS[model_name]["features"]])[:, 1]
-    if model_name == "uci_credit_default":
+    if "credit" in model_name:
         # Class 1 is default; approval means "no default".
         return 1.0 - probability
     return probability
@@ -181,16 +235,21 @@ def train_model(model_name: str, frame: pd.DataFrame) -> dict[str, Any]:
         random_state=SEED,
         stratify=frame["target"],
     )
-    pipeline = (
-        _fit_credit(train) if model_name == "uci_credit_default" else _fit_adult(train)
-    )
+    if model_name == "uci_credit_default":
+        pipeline = _fit_credit(train)
+    elif model_name == "uci_credit_gbm":
+        pipeline = _fit_credit_gbm(train)
+    elif model_name == "adult_logistic":
+        pipeline = _fit_adult_logistic(train)
+    else:
+        pipeline = _fit_adult(train)
     pipeline.fit(train[features], train["target"])
 
     probability_good = _prob_good(model_name, pipeline, holdout)
     approved = probability_good >= APPROVAL_THRESHOLD
     y_true = holdout["target"].to_numpy()
     y_true_good = (
-        (1 - y_true) if model_name == "uci_credit_default" else y_true
+        (1 - y_true) if "credit" in model_name else y_true
     )
 
     numeric = [
@@ -202,11 +261,12 @@ def train_model(model_name: str, frame: pd.DataFrame) -> dict[str, Any]:
 
     sensitive_frames = {
         "sex": holdout["sex"].map({1: "male", 2: "female"})
-        if model_name == "uci_credit_default"
+        if "credit" in model_name
         else holdout["sex"],
         "age_band": holdout["age"].map(_age_band),
     }
-    if model_name == "adult_income":
+    if "adult" in model_name:
+        sensitive_frames["race"] = holdout["race"]
         sensitive_frames["race"] = holdout["race"]
 
     fairness = {
@@ -247,8 +307,8 @@ def train_model(model_name: str, frame: pd.DataFrame) -> dict[str, Any]:
         },
         "used_canonical_fields": USED_FIELDS[model_name],
         "unused_canonical_fields": UNUSED_FIELDS[model_name],
-        "dataset": dataset_summary(model_name),
-        "dataset_sha256": dataset_sha256(model_name),
+        "dataset": dataset_summary(specification.get("dataset", model_name)),
+        "dataset_sha256": dataset_sha256(specification.get("dataset", model_name)),
         "artifact": specification["artifact"],
     }
     ARTIFACT_DIR.mkdir(parents=True, exist_ok=True)
@@ -269,7 +329,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     names = sorted(MODELS) if args.model == "all" else [args.model]
     for name in names:
-        frame = load_dataset(name)
+        dataset_key = MODELS[name].get("dataset", name)
+        frame = load_dataset(dataset_key)
         metrics = train_model(name, frame)
         holdout = metrics["holdout"]
         print(

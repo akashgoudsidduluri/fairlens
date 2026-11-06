@@ -119,11 +119,29 @@ USED_FIELDS: dict[str, list[str]] = {
         "age",
         "gender",
     ],
+    "uci_credit_gbm": [
+        "income",
+        "loan_amount",
+        "credit_score",
+        "age",
+        "gender",
+    ],
     "adult_income": ["age", "gender", "credit_score", "employment_years"],
+    "adult_logistic": ["age", "gender", "credit_score", "employment_years"],
 }
 
 UNUSED_FIELDS: dict[str, list[str]] = {
     "uci_credit_default": [
+        "employment_years",
+        "pincode",
+        "name",
+        "pincode_group",
+        "name_group",
+        "urban_rural",
+        "age_band",
+        "id",
+    ],
+    "uci_credit_gbm": [
         "employment_years",
         "pincode",
         "name",
@@ -144,6 +162,17 @@ UNUSED_FIELDS: dict[str, list[str]] = {
         "age_band",
         "id",
     ],
+    "adult_logistic": [
+        "income",
+        "loan_amount",
+        "pincode",
+        "name",
+        "pincode_group",
+        "name_group",
+        "urban_rural",
+        "age_band",
+        "id",
+    ],
 }
 
 # Dataset columns that are fixed because the canonical contract has no source
@@ -154,7 +183,25 @@ CONSTANT_FIELDS: dict[str, dict[str, Any]] = {
         "education_source": "credit_score thresholds 750/650 -> 1/2/3",
         "payment_delay_source": "clip(round((700 - credit_score) / 55), -2, 8)",
     },
+    "uci_credit_gbm": {
+        "marriage": 2,
+        "education_source": "credit_score thresholds 750/650 -> 1/2/3",
+        "payment_delay_source": "clip(round((700 - credit_score) / 55), -2, 8)",
+    },
     "adult_income": {
+        "workclass": "Private",
+        "marital_status": "Never-married",
+        "occupation": "Prof-specialty",
+        "relationship": "Not-in-family",
+        "race": "White",
+        "native_country": "United-States",
+        "capital_gain": 0,
+        "capital_loss": 0,
+        "fnlwgt": "training median",
+        "education_source": "credit_score thresholds 750/650 -> Masters/Bachelors/HS-grad",
+        "hours_per_week_source": "employment_years quantile-mapped to the training range",
+    },
+    "adult_logistic": {
         "workclass": "Private",
         "marital_status": "Never-married",
         "occupation": "Prof-specialty",
@@ -264,7 +311,9 @@ def adult_row(applicant: Applicant, profile: FeatureProfile) -> dict[str, Any]:
 
 MAPPERS = {
     "uci_credit_default": credit_row,
+    "uci_credit_gbm": credit_row,
     "adult_income": adult_row,
+    "adult_logistic": adult_row,
 }
 
 
@@ -280,7 +329,7 @@ def validate_row(
     """Return human-readable violations against the training domain."""
 
     violations: list[str] = []
-    features = CREDIT_FEATURES if model == "uci_credit_default" else ADULT_FEATURES
+    features = CREDIT_FEATURES if "credit" in model else ADULT_FEATURES
     for feature in features:
         if feature not in row:
             violations.append(f"{feature}: missing")

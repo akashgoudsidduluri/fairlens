@@ -40,9 +40,9 @@ def _config(tmp_path):
 # --------------------------------------------------------------------- catalog
 
 
-def test_catalog_has_fifteen_validation_models_two_real_and_one_llm():
+def test_catalog_has_fifteen_validation_models_four_real_and_one_llm():
     catalog = build_catalog(load_config(), environ={})
-    assert len(catalog.targets) == 18
+    assert len(catalog.targets) == 20
     validation = [card for card in catalog.targets if card.kind == "validation"]
     real = [card for card in catalog.targets if card.kind == "real"]
     llm = [card for card in catalog.targets if card.kind == "llm"]
@@ -55,8 +55,10 @@ def test_catalog_has_fifteen_validation_models_two_real_and_one_llm():
     assert [card.target for card in real] == [
         "targets/real/uci-credit-default.yaml",
         "targets/real/adult-income.yaml",
+        "targets/real/uci-credit-gbm.yaml",
+        "targets/real/adult-logistic.yaml",
     ]
-    assert [card.model_id for card in real] == [1, 2]
+    assert [card.model_id for card in real] == [1, 2, 3, 4]
     assert len(llm) == 1
     assert llm[0].target == "llm:screener"
 
@@ -245,7 +247,7 @@ async def test_targets_route_serves_the_catalog(tmp_path):
             response = await client.get("/targets")
             assert response.status_code == 200
             body = response.json()
-            assert len(body["targets"]) == 18
+            assert len(body["targets"]) == 20
             assert body["targets"][-1]["kind"] == "llm"
             assert body["targets"][-1]["availability"]["status"] in {
                 "available",

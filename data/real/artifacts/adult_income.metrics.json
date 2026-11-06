@@ -1,6 +1,6 @@
 {
   "model": "adult_income",
-  "trained_at": "2026-10-27T20:03:26.353270+00:00",
+  "trained_at": "2026-11-06T09:15:15.969328+00:00",
   "seed": 42,
   "test_size": 0.2,
   "rows_total": 32561,
@@ -890,7 +890,7 @@
     "doi": "10.24432/C5XW20",
     "url": "https://archive.ics.uci.edu/static/public/2/adult.zip",
     "sha256": "bbf658304d995f92a79bf563817cf44f92ff3623e25b79f0bc1c6894b0506a8d",
-    "cache": "data\\real\\adult_income.csv"
+    "cache": "data/real/adult_income.csv"
   },
   "dataset_sha256": "bbf658304d995f92a79bf563817cf44f92ff3623e25b79f0bc1c6894b0506a8d",
   "artifact": "adult_gbm.joblib"

@@ -39,7 +39,9 @@ _SAFE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 _LABELS = {
     "targets/real/adult-income.yaml": "UCI Adult (gradient boosting)",
+    "targets/real/adult-logistic.yaml": "UCI Adult (logistic regression)",
     "targets/real/uci-credit-default.yaml": "UCI credit default (logistic regression)",
+    "targets/real/uci-credit-gbm.yaml": "UCI credit default (gradient boosting)",
 }
 
 
