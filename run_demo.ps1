@@ -1,8 +1,9 @@
 # FairLens India - Unified Full-Stack Launch Script
 # Starts:
 #   1. Sandbox "Biased Bank" API (port 8010)
-#   2. FastAPI Autonomous Audit Service (port 8020)
-#   3. React/Vite Evidence Arena & Dashboard (port 5173)
+#   2. Real UCI Datasets Models API (port 8030)
+#   3. FastAPI Autonomous Audit Service (port 8020)
+#   4. React/Vite Evidence Arena & Dashboard (port 5173)
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -31,31 +32,38 @@ if (-not $py) { $py = "python" }
 Write-Host "[1/3] Using Python: $py" -ForegroundColor Green
 $env:PYTHONPATH = $root
 
-# 2. Check Sandbox API
+# 2. Check Backend APIs
 $sandboxPort = if ($env:FAIRLENS_SANDBOX_PORT) { [int]$env:FAIRLENS_SANDBOX_PORT } else { 8010 }
 $servicePort = if ($env:FAIRLENS_SERVICE_PORT) { [int]$env:FAIRLENS_SERVICE_PORT } else { 8020 }
+$realPort = if ($env:FAIRLENS_REAL_PORT) { [int]$env:FAIRLENS_REAL_PORT } else { 8030 }
 
 Write-Host "[2/3] Starting Backend Services..." -ForegroundColor Green
 $sandboxProc = Start-Process -FilePath $py `
     -ArgumentList "-m", "sandbox.serve", "--host", "127.0.0.1", "--port", "$sandboxPort", "--log-level", "warning" `
     -PassThru -NoNewWindow
 
+$realProc = Start-Process -FilePath $py `
+    -ArgumentList "-m", "targets.real.serve", "--host", "127.0.0.1", "--port", "$realPort" `
+    -PassThru -NoNewWindow
+
 $serviceProc = Start-Process -FilePath $py `
     -ArgumentList "-m", "api.serve" `
-    -Environment @{ PYTHONPATH = $root; FAIRLENS_SERVICE_PORT = "$servicePort" } `
+    -Environment @{ PYTHONPATH = $root; FAIRLENS_SERVICE_PORT = "$servicePort"; FAIRLENS_REAL_PORT = "$realPort" } `
     -PassThru -NoNewWindow
 
 # Wait for backend health
 Write-Host "      Waiting for services to become healthy..." -ForegroundColor Gray
 $sandboxUrl = "http://127.0.0.1:$sandboxPort"
 $serviceUrl = "http://127.0.0.1:$servicePort"
+$realUrl = "http://127.0.0.1:$realPort"
 
 $ready = $false
 for ($i = 0; $i -lt 40; $i++) {
     try {
         $r1 = Invoke-WebRequest -UseBasicParsing -Uri "$sandboxUrl/health" -TimeoutSec 1
         $r2 = Invoke-WebRequest -UseBasicParsing -Uri "$serviceUrl/health" -TimeoutSec 1
-        if ($r1.StatusCode -eq 200 -and $r2.StatusCode -eq 200) {
+        $r3 = Invoke-WebRequest -UseBasicParsing -Uri "$realUrl/health" -TimeoutSec 1
+        if ($r1.StatusCode -eq 200 -and $r2.StatusCode -eq 200 -and $r3.StatusCode -eq 200) {
             $ready = $true
             break
         }
@@ -66,8 +74,9 @@ for ($i = 0; $i -lt 40; $i++) {
 if (-not $ready) {
     Write-Warning "Backend health checks took longer than expected. Continuing..."
 } else {
-    Write-Host "      + Sandbox Bank API: $sandboxUrl" -ForegroundColor Cyan
-    Write-Host "      + Audit Engine API: $serviceUrl" -ForegroundColor Cyan
+    Write-Host "      + Sandbox Bank API:    $sandboxUrl" -ForegroundColor Cyan
+    Write-Host "      + Real UCI Models API: $realUrl" -ForegroundColor Cyan
+    Write-Host "      + Audit Engine API:    $serviceUrl" -ForegroundColor Cyan
 }
 
 # 3. Start Frontend
@@ -89,6 +98,7 @@ Write-Host "==========================================================" -Foregro
 Write-Host "  FairLens India is LIVE!                                 " -ForegroundColor Yellow
 Write-Host "  Dashboard:     http://localhost:5173                    " -ForegroundColor White
 Write-Host "  Audit Service: $serviceUrl                              " -ForegroundColor White
+Write-Host "  Real Models:   $realUrl (UCI Credit Default, Adult)     " -ForegroundColor White
 Write-Host "  Demo Flow:     Model 2 (Gender) -> Model 7 (Confounded) " -ForegroundColor White
 Write-Host "                 -> Model 5 (Intersectional)              " -ForegroundColor White
 Write-Host "  Press Ctrl+C to terminate all servers.                  " -ForegroundColor Yellow
@@ -97,14 +107,15 @@ Write-Host "==========================================================" -Foregro
 try {
     # Keep script open and monitor processes
     while ($true) {
-        if ($sandboxProc.HasExited -or $serviceProc.HasExited -or $frontendProc.HasExited) {
+        if ($sandboxProc.HasExited -or $realProc.HasExited -or $serviceProc.HasExited -or $frontendProc.HasExited) {
             break
         }
         Start-Sleep -Seconds 1
     }
 } finally {
     Write-Host "`nStopping FairLens services..." -ForegroundColor Red
-    Stop-Process -Id $sandboxProc.Id -ErrorAction SilentlyContinue
-    Stop-Process -Id $serviceProc.Id -ErrorAction SilentlyContinue
-    Stop-Process -Id $frontendProc.Id -ErrorAction SilentlyContinue
+    if ($sandboxProc) { Stop-Process -Id $sandboxProc.Id -ErrorAction SilentlyContinue }
+    if ($realProc) { Stop-Process -Id $realProc.Id -ErrorAction SilentlyContinue }
+    if ($serviceProc) { Stop-Process -Id $serviceProc.Id -ErrorAction SilentlyContinue }
+    if ($frontendProc) { Stop-Process -Id $frontendProc.Id -ErrorAction SilentlyContinue }
 }
