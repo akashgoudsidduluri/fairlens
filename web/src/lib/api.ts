@@ -11,16 +11,20 @@ import type {
   AuditCreated,
   AuditRecord,
   CertificateList,
+  DecisionRequest,
   DecisionResponse,
   EndpointCheckRequest,
   EndpointCheckResponse,
   EvidenceReport,
   HealthResponse,
+  LoginRequest,
+  LoginResponse,
   ReplayFile,
   ReplayList,
   ServiceMeta,
   TamperResponse,
   TargetCatalog,
+  UserProfile,
   VerifyResponse,
 } from "@/api-types";
 
@@ -94,10 +98,15 @@ export const api = {
   /** Aggregates computed from eval/results/*.csv and real_models.md. */
   getEvidence: () => request<EvidenceReport>("/evidence"),
 
-  decide: (auditId: string, approver: string, decision: "approve" | "reject") =>
+  decide: (
+    auditId: string,
+    approver: string,
+    decision: "approve" | "reject",
+    extra?: Partial<DecisionRequest>,
+  ) =>
     request<DecisionResponse>(`/audits/${auditId}/decision`, {
       method: "POST",
-      body: JSON.stringify({ approver, decision }),
+      body: JSON.stringify({ approver, decision, ...extra }),
     }),
 
   certificates: () => request<CertificateList>("/certificates"),
@@ -113,6 +122,14 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ index, field, confirm: true }),
     }),
+
+  login: (body: LoginRequest) =>
+    request<LoginResponse>("/auth/login", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+
+  getDemoUsers: () => request<UserProfile[]>("/auth/users"),
 };
 
 /**

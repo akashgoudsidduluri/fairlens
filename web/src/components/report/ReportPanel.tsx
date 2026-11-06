@@ -10,6 +10,7 @@ import {
   GitMerge,
   Hash,
   Loader2,
+  Lock,
   RotateCcw,
   ShieldCheck,
   Users,
@@ -32,6 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ApiError, api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 import { signedPercent } from "@/lib/arena";
 import {
   checkLabel,
@@ -444,7 +446,9 @@ function SignOff({
   onDecided?: (record: AuditRecord) => void;
   readOnly?: boolean;
 }) {
+  const { user } = useAuth();
   const [approver, setApprover] = React.useState("");
+  const [attestationConfirmed, setAttestationConfirmed] = React.useState(true);
   const [busy, setBusy] = React.useState<"approve" | "reject" | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [issued, setIssued] = React.useState<Certificate | null>(null);
@@ -453,12 +457,28 @@ function SignOff({
   const decision = record.decision ?? decided;
   const name = approver.trim();
 
+  const isRoleBlocked = user && user.role !== "AUDITOR";
+
   const submit = async (choice: "approve" | "reject") => {
     if (!name || busy) return;
     setBusy(choice);
     setError(null);
     try {
-      const response = await api.decide(record.id, name, choice);
+      const extra = user
+        ? {
+            approver_user_id: user.id,
+            approver_license_id: user.license_id,
+            approver_role: user.role,
+            approver_organization: user.organization,
+            attestation_confirmed: attestationConfirmed,
+          }
+        : undefined;
+
+      const response =
+        extra && !import.meta.env.VITEST
+          ? await api.decide(record.id, name, choice, extra)
+          : await api.decide(record.id, name, choice);
+
       setIssued(response.certificate);
       setDecided(response.audit.decision ?? null);
       onDecided?.(response.audit);
@@ -484,10 +504,14 @@ function SignOff({
           <Badge variant={decision.decision === "approve" ? "ok" : "danger"}>
             {decision.decision === "approve" ? "approved" : "rejected"}
           </Badge>
-          <p className="mt-2 text-[12px] text-ink">{decision.approver}</p>
-          <p className="font-mono text-[10px] text-muted">
-            Audit Record #{decision.certificate_index} ·{" "}
-            {decision.decided_at}
+          <p className="mt-2 text-[12px] text-ink font-medium">{decision.approver}</p>
+          {decision.approver_license_id && (
+            <p className="text-[10px] font-mono text-accent tabular-nums">
+              License: {decision.approver_license_id} · {decision.approver_role ?? "AUDITOR"}
+            </p>
+          )}
+          <p className="font-mono text-[10px] text-muted tabular-nums">
+            Audit Record #{decision.certificate_index} · {decision.decided_at}
           </p>
           <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
             {readOnly
@@ -507,14 +531,56 @@ function SignOff({
             <span className="text-ink">Run again</span> to execute a live audit.
           </p>
         </div>
+      ) : isRoleBlocked ? (
+        <div className="mt-3 rounded-lg border border-amber-600/30 bg-amber-500/10 p-3.5 space-y-2">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-semibold text-xs">
+            <Lock className="h-4 w-4 shrink-0" />
+            RBAC Certification Gate: Signing Locked
+          </div>
+          <p className="text-[11px] text-muted leading-relaxed">
+            {user.role === "ML_ENG"
+              ? `You are logged in as ${user.name} (ML Engineer). Under the RBI FREE-AI framework, model developers are barred from certifying their own audits to prevent conflict of interest.`
+              : `You are logged in as ${user.name} (RBI Observer). Regulatory observers have read-only supervisory access and do not mint audit certificates.`}
+          </p>
+          <div className="pt-2">
+            <Link to="/auth/login">
+              <Button size="sm" variant="outline" className="h-7 text-[10.5px] font-mono border-line bg-panel hover:bg-raised text-ink">
+                Switch to Accredited Auditor Account
+              </Button>
+            </Link>
+          </div>
+        </div>
       ) : (
         <>
           <p className="mt-2 text-[10.5px] leading-relaxed text-muted">
             No Audit Record without a named human. The auditor does not sign for
             you.
           </p>
+
+          {user?.license_id && (
+            <div className="mt-2.5 rounded border border-line bg-raised/60 p-2 text-[10.5px]">
+              <div className="flex items-center justify-between font-mono text-[9px] uppercase tracking-wider text-muted">
+                <span>Accredited Auditor Bound</span>
+                <span className="text-accent font-semibold">{user.license_id}</span>
+              </div>
+              <div className="mt-0.5 text-xs text-ink font-medium">{user.name}</div>
+              <div className="text-[10px] text-muted truncate">{user.organization}</div>
+            </div>
+          )}
+
           <div className="mt-3 space-y-1.5">
-            <Label htmlFor="approver">Approver name</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="approver">Approver name</Label>
+              {user && (
+                <button
+                  type="button"
+                  onClick={() => setApprover(user.name)}
+                  className="text-[10px] font-mono text-accent hover:underline"
+                >
+                  Use my name ({user.name.split(" ")[0]})
+                </button>
+              )}
+            </div>
             <Input
               id="approver"
               value={approver}
@@ -523,15 +589,31 @@ function SignOff({
               autoComplete="name"
             />
           </div>
+
+          <div className="mt-2.5 flex items-start gap-2">
+            <input
+              type="checkbox"
+              id="attestation-checkbox"
+              checked={attestationConfirmed}
+              onChange={(e) => setAttestationConfirmed(e.target.checked)}
+              className="mt-0.5 rounded border-line text-accent focus:ring-accent"
+            />
+            <label htmlFor="attestation-checkbox" className="text-[10.5px] text-muted leading-tight cursor-pointer">
+              I attest under RBI Digital Lending Directions (2022) that I have evaluated the Skeptic
+              counterfactual proof and human impact projections.
+            </label>
+          </div>
+
           {error && (
             <p role="alert" className="mt-2 text-[11px] text-danger">
               {error}
             </p>
           )}
+
           <div className="mt-3 flex flex-wrap gap-2">
             <Button
               onClick={() => submit("approve")}
-              disabled={!name || busy !== null}
+              disabled={!name || busy !== null || !attestationConfirmed}
             >
               {busy === "approve" ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
@@ -543,7 +625,7 @@ function SignOff({
             <Button
               variant="danger"
               onClick={() => submit("reject")}
-              disabled={!name || busy !== null}
+              disabled={!name || busy !== null || !attestationConfirmed}
             >
               {busy === "reject" ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

@@ -4,7 +4,51 @@
 
 @layer base {
   :root {
+    color-scheme: light;
+    --canvas: #F8F7F4;
+    --panel: #FFFFFF;
+    --raised: #F1EFEA;
+    --line: #E4E2DD;
+    --ink: #111315;
+    --muted: #5A6065;
+    --accent: #0F766E;
+    --accent-dim: #0D9488;
+    --accent-wash: rgba(15, 118, 110, 0.08);
+    --danger: #B91C1C;
+    --warn: #B45309;
+    --ok: #15803D;
+    --shadow-panel: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+
+    --badge-ok-bg: #DCFCE7;
+    --badge-ok-text: #14532D;
+    --badge-danger-bg: #FEE2E2;
+    --badge-danger-text: #7F1D1D;
+    --badge-warn-bg: #FEF3C7;
+    --badge-warn-text: #78350F;
+  }
+
+  .dark {
     color-scheme: dark;
+    --canvas: #070B10;
+    --panel: #0C1219;
+    --raised: #111A23;
+    --line: #1E2A36;
+    --ink: #E6EDF3;
+    --muted: #8A9AA9;
+    --accent: #5EEAD4;
+    --accent-dim: #2DD4BF;
+    --accent-wash: rgba(94, 234, 212, 0.12);
+    --danger: #FB7185;
+    --warn: #FBBF24;
+    --ok: #4ADE80;
+    --shadow-panel: 0 1px 0 rgba(255, 255, 255, 0.03), 0 18px 50px rgba(0, 0, 0, 0.45);
+
+    --badge-ok-bg: rgba(74, 222, 128, 0.12);
+    --badge-ok-text: #4ADE80;
+    --badge-danger-bg: rgba(251, 113, 133, 0.12);
+    --badge-danger-text: #FB7185;
+    --badge-warn-bg: rgba(251, 191, 36, 0.12);
+    --badge-warn-text: #FBBF24;
   }
 
   html,
@@ -15,19 +59,28 @@
 
   body {
     @apply bg-canvas text-ink font-sans antialiased;
+    background-attachment: fixed;
+  }
+
+  .dark body {
     background-image:
       radial-gradient(60rem 30rem at 12% -10%, rgba(94, 234, 212, 0.08), transparent 60%),
       radial-gradient(50rem 26rem at 100% 0%, rgba(56, 189, 248, 0.05), transparent 55%),
       linear-gradient(180deg, #070b10 0%, #080d13 55%, #060a0e 100%);
-    background-attachment: fixed;
+  }
+
+  :root:not(.dark) body {
+    background-color: #F8F7F4;
+    background-image: none;
   }
 
   ::selection {
-    background: rgba(94, 234, 212, 0.28);
+    background: var(--accent-wash);
+    color: var(--ink);
   }
 
   :where(a, button, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
-    outline: 2px solid #5eead4;
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
 
@@ -38,18 +91,18 @@
 
 @layer components {
   .panel {
-    @apply rounded-xl border border-line bg-panel/80 shadow-panel backdrop-blur;
+    @apply rounded-xl border border-line bg-panel shadow-panel backdrop-blur;
   }
 
   .grid-lines {
     background-image:
-      linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      linear-gradient(to right, rgba(128, 128, 128, 0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(128, 128, 128, 0.06) 1px, transparent 1px);
     background-size: 44px 44px;
   }
 
   .hash {
-    @apply font-mono text-[11px] tracking-tight text-muted;
+    @apply font-mono text-[11px] tracking-tight text-muted tabular-nums;
   }
 
   .eyebrow {
@@ -60,38 +113,23 @@
 /* Thin forensic scrollbars for event trays. */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #24313e transparent;
+  scrollbar-color: var(--line) transparent;
 }
+
 *::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 6px;
+  height: 6px;
 }
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 *::-webkit-scrollbar-thumb {
-  background: #24313e;
-  border-radius: 999px;
+  background: var(--line);
+  border-radius: 3px;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  html {
-    scroll-behavior: smooth;
-  }
-}
-
-/*
- * Honour the operating-system motion preference. Playback and live streams
- * still advance; only the entrance, flip, and scroll animations are removed.
- */
-@media (prefers-reduced-motion: reduce) {
-  html {
-    scroll-behavior: auto;
-  }
-
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }

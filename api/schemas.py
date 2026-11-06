@@ -75,6 +75,11 @@ class AuditCreated(ServiceModel):
 class DecisionRequest(ServiceModel):
     approver: str = Field(min_length=1, max_length=200)
     decision: Literal["approve", "reject"]
+    approver_user_id: str | None = None
+    approver_license_id: str | None = None
+    approver_role: str | None = None
+    approver_organization: str | None = None
+    attestation_confirmed: bool = False
 
     @field_validator("approver")
     @classmethod
@@ -90,6 +95,9 @@ class DecisionInfo(ServiceModel):
     decision: Literal["approve", "reject"]
     certificate_index: int
     decided_at: datetime
+    approver_license_id: str | None = None
+    approver_role: str | None = None
+    approver_organization: str | None = None
 
 
 class AuditRecord(ServiceModel):
@@ -355,3 +363,25 @@ class EndpointCheckResponse(ServiceModel):
     detail: str
     latency_ms: float
     models: list[str] = Field(default_factory=list)
+
+UserRole = Literal["AUDITOR", "ML_ENG", "REGULATOR"]
+
+
+class UserProfile(ServiceModel):
+    id: str
+    email: str
+    name: str
+    role: UserRole
+    organization: str
+    license_id: str | None = None
+    title: str
+
+
+class LoginRequest(ServiceModel):
+    email: str
+    password: str
+
+
+class LoginResponse(ServiceModel):
+    token: str
+    user: UserProfile

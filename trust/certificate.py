@@ -19,6 +19,7 @@ this limitation.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import sqlite3
 from contextlib import contextmanager
@@ -102,6 +103,10 @@ def issue(
     if missing:
         raise ValueError(f"certificate payload missing fields: {sorted(missing)}")
     ts = timestamp or raw.get("timestamp") or utc_now_iso()
+    sig = raw.get("auditor_signature")
+    if not sig and raw.get("approver_license_id"):
+        sig_seed = f"{approver.strip()}:{raw.get('approver_license_id')}:{ts}:{raw['model_id']}"
+        sig = hashlib.sha256(sig_seed.encode("utf-8")).hexdigest()[:32]
     cert_payload = CertificatePayload(
         version=int(raw.get("version", 1)),
         model_id=int(raw["model_id"]),
@@ -111,6 +116,11 @@ def issue(
         approver=approver.strip(),
         decision=decision,  # type: ignore[arg-type]
         timestamp=ts,
+        approver_user_id=raw.get("approver_user_id"),
+        approver_license_id=raw.get("approver_license_id"),
+        approver_role=raw.get("approver_role"),
+        approver_organization=raw.get("approver_organization"),
+        auditor_signature=sig,
     )
     payload_text = canonical_json(cert_payload)
 
@@ -273,11 +283,18 @@ def build_certificate_payload(
     decision: str,
     *,
     timestamp: str | None = None,
+    approver_user_id: str | None = None,
+    approver_license_id: str | None = None,
+    approver_role: str | None = None,
+    approver_organization: str | None = None,
 ) -> dict[str, Any]:
     """Hash the findings, report, and config for the certificate payload."""
 
     findings_payload = [f.model_dump(mode="json") for f in report.findings]
     report_payload = report.model_dump(mode="json")
+    ts = timestamp or utc_now_iso()
+    sig_seed = f"{approver.strip()}:{approver_license_id or 'UNLICENSED'}:{ts}:{report.model_id}"
+    sig = hashlib.sha256(sig_seed.encode("utf-8")).hexdigest()[:32]
     return CertificatePayload(
         version=1,
         model_id=report.model_id,
@@ -286,7 +303,12 @@ def build_certificate_payload(
         config_hash=sha256_canonical(config),
         approver=approver.strip(),
         decision=decision,  # type: ignore[arg-type]
-        timestamp=timestamp or utc_now_iso(),
+        timestamp=ts,
+        approver_user_id=approver_user_id,
+        approver_license_id=approver_license_id,
+        approver_role=approver_role,
+        approver_organization=approver_organization,
+        auditor_signature=sig,
     ).model_dump()
 
 

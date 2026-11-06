@@ -79,11 +79,19 @@ export interface DecisionInfo {
   decision: "approve" | "reject";
   certificate_index: number;
   decided_at: string;
+  approver_license_id?: string | null;
+  approver_role?: string | null;
+  approver_organization?: string | null;
 }
 
 export interface DecisionRequest {
   approver: string;
   decision: "approve" | "reject";
+  approver_user_id?: string | null;
+  approver_license_id?: string | null;
+  approver_role?: string | null;
+  approver_organization?: string | null;
+  attestation_confirmed?: boolean;
 }
 
 export interface DecisionResponse {
@@ -174,6 +182,16 @@ export interface ImpactEstimate {
   ci_low_per_10k: number;
   ci_high_per_10k: number;
   explanation: string;
+}
+
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  user: UserProfile;
 }
 
 export interface ProbeEvent {
@@ -366,6 +384,16 @@ export interface TargetCard {
 export interface TargetCatalog {
   targets: TargetCard[];
   service?: string;
+}
+
+export interface UserProfile {
+  id: string;
+  email: string;
+  name: string;
+  role: "AUDITOR" | "ML_ENG" | "REGULATOR";
+  organization: string;
+  license_id?: string | null;
+  title: string;
 }
 
 export interface ValidationError {

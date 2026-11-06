@@ -18,6 +18,7 @@ from typing import Any, AsyncIterator, Callable
 
 from fastapi import FastAPI, Header, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 
 from auditor.pipeline import run_audit
 from config_loader import load_config, repo_path
@@ -46,6 +47,10 @@ from api.schemas import (
     AuditCreated,
     AuditRecord,
     CertificateList,
+    LoginRequest,
+    LoginResponse,
+    UserProfile,
+    UserRole,
     DecisionInfo,
     DecisionRequest,
     DecisionResponse,
@@ -146,6 +151,40 @@ def _verify_payload(cert_db: Any) -> VerifyResponse:
     )
 
 
+DEMO_USERS = {
+    "auditor@fairlens.in": {
+        "id": "usr_auditor_01",
+        "email": "auditor@fairlens.in",
+        "password": "Auditor@2026",
+        "name": "Dr. Arishta Sen",
+        "role": "AUDITOR",
+        "organization": "Bureau of AI Ethics & Lending Supervision",
+        "license_id": "RBI-FA-2026-089",
+        "title": "Lead AI Fairness Auditor (Accredited)",
+    },
+    "ml.eng@capitalcredit.in": {
+        "id": "usr_ml_02",
+        "email": "ml.eng@capitalcredit.in",
+        "password": "Engineer@2026",
+        "name": "Vikram Malhotra",
+        "role": "ML_ENG",
+        "organization": "CapitalCredit NBFC Risk Analytics",
+        "license_id": None,
+        "title": "Principal Credit Risk ML Engineer",
+    },
+    "regulator@rbi.org.in": {
+        "id": "usr_reg_03",
+        "email": "regulator@rbi.org.in",
+        "password": "Regulator@2026",
+        "name": "Priya Nambiar",
+        "role": "REGULATOR",
+        "organization": "Reserve Bank of India (FinTech Dept.)",
+        "license_id": "RBI-SUPV-REG-441",
+        "title": "Deputy Director, Algorithmic Lending Compliance",
+    },
+}
+
+
 def create_app(
     *,
     config: dict[str, Any] | None = None,
@@ -195,10 +234,63 @@ def create_app(
         ),
         lifespan=lifespan,
     )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     app.state.config = cfg
     app.state.store = audit_store
     app.state.manager = manager
     app.state.cert_db = cert_db
+
+
+    @app.post("/auth/login", response_model=LoginResponse, tags=["auth"])
+    def login(req: LoginRequest) -> LoginResponse:
+        email = req.email.strip().lower()
+        user_data = DEMO_USERS.get(email)
+        if not user_data and ("@" in email):
+            role = "AUDITOR" if "auditor" in email else ("ML_ENG" if ("ml" in email or "eng" in email) else "REGULATOR")
+            user_data = {
+                "id": f"usr_{uuid.uuid4().hex[:8]}",
+                "email": email,
+                "name": email.split("@")[0].replace(".", " ").title(),
+                "role": role,
+                "organization": "Independent Lending Institution",
+                "license_id": "RBI-FA-2026-DEMO" if role == "AUDITOR" else None,
+                "title": f"FairLens {role}",
+            }
+        elif not user_data:
+            raise HTTPException(status_code=401, detail="Invalid credentials. Select a demo persona or use valid email.")
+
+        token = f"fl_jwt_{user_data['id']}_{int(time.time())}"
+        profile = UserProfile(
+            id=user_data["id"],
+            email=user_data["email"],
+            name=user_data["name"],
+            role=user_data["role"],
+            organization=user_data["organization"],
+            license_id=user_data.get("license_id"),
+            title=user_data["title"],
+        )
+        return LoginResponse(token=token, user=profile)
+
+    @app.get("/auth/users", response_model=list[UserProfile], tags=["auth"])
+    def demo_users() -> list[UserProfile]:
+        return [
+            UserProfile(
+                id=u["id"],
+                email=u["email"],
+                name=u["name"],
+                role=u["role"],
+                organization=u["organization"],
+                license_id=u.get("license_id"),
+                title=u["title"],
+            )
+            for u in DEMO_USERS.values()
+        ]
 
     @app.get("/health", response_model=HealthResponse, tags=["service"])
     def health() -> HealthResponse:
@@ -450,10 +542,22 @@ def create_app(
             )
         if record.get("result") is None:
             raise HTTPException(status_code=409, detail="audit has no report")
+        if request.approver_role and request.approver_role != "AUDITOR":
+            raise HTTPException(
+                status_code=403,
+                detail=f"Role-Based Access Control: Only accredited AUDITOR accounts can certify official audit reports. Current role '{request.approver_role}' cannot issue certificates."
+            )
         report = AuditReport.model_validate(record["result"])
         try:
             payload = build_certificate_payload(
-                report, report.config, request.approver, request.decision
+                report,
+                report.config,
+                request.approver,
+                request.decision,
+                approver_user_id=request.approver_user_id,
+                approver_license_id=request.approver_license_id,
+                approver_role=request.approver_role,
+                approver_organization=request.approver_organization,
             )
             certificate = issue(
                 payload, request.approver, request.decision, cert_db

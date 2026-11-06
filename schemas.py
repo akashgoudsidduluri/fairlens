@@ -194,6 +194,11 @@ class CertificatePayload(Contract):
     approver: str
     decision: Literal["approve", "reject"]
     timestamp: str
+    approver_user_id: str | None = None
+    approver_license_id: str | None = None
+    approver_role: str | None = None
+    approver_organization: str | None = None
+    auditor_signature: str | None = None
 
 
 class Certificate(Contract):

@@ -5,28 +5,28 @@ export default {
   theme: {
     extend: {
       colors: {
-        canvas: "#070B10",
-        panel: "#0C1219",
-        raised: "#111A23",
-        line: "#1E2A36",
-        ink: "#E6EDF3",
-        muted: "#8A9AA9",
+        canvas: "var(--canvas)",
+        panel: "var(--panel)",
+        raised: "var(--raised)",
+        line: "var(--line)",
+        ink: "var(--ink)",
+        muted: "var(--muted)",
         accent: {
-          DEFAULT: "#5EEAD4",
-          dim: "#2DD4BF",
-          wash: "rgba(94, 234, 212, 0.12)",
+          DEFAULT: "var(--accent)",
+          dim: "var(--accent-dim)",
+          wash: "var(--accent-wash)",
         },
-        danger: "#FB7185",
-        warn: "#FBBF24",
-        ok: "#4ADE80",
+        danger: "var(--danger)",
+        warn: "var(--warn)",
+        ok: "var(--ok)",
       },
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["JetBrains Mono", "ui-monospace", "monospace"],
       },
       boxShadow: {
-        panel: "0 1px 0 rgba(255,255,255,0.03), 0 18px 50px rgba(0,0,0,0.45)",
-        glow: "0 0 0 1px rgba(94,234,212,0.35), 0 0 34px rgba(94,234,212,0.12)",
+        panel: "var(--shadow-panel)",
+        glow: "0 0 0 1px var(--accent), 0 0 20px var(--accent-wash)",
       },
       keyframes: {
         "pulse-line": {
