@@ -1,0 +1,9 @@
+{
+  "name": "fairlens-root",
+  "private": true,
+  "scripts": {
+    "build": "npm run build --prefix web",
+    "dev": "npm run dev --prefix web",
+    "test": "npm run test --prefix web"
+  }
+}

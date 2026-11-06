@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, AsyncIterator, Callable
 
-from fastapi import FastAPI, Header, HTTPException, Query, status
+from fastapi import FastAPI, Header, HTTPException, Query, Request, status
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -239,10 +239,18 @@ def create_app(
     app.add_middleware(
         CORSMiddleware,
         allow_origins=["*"],
+        allow_origin_regex=r"https?://.*",
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.middleware("http")
+    async def strip_api_prefix(request: Request, call_next: Any) -> Any:
+        path = request.scope.get("path", "")
+        if path.startswith("/api/"):
+            request.scope["path"] = path[4:]
+        return await call_next(request)
     app.state.config = cfg
     app.state.store = audit_store
     app.state.manager = manager

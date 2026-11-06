@@ -2,7 +2,7 @@
 
     .venv\\Scripts\\python -m api.serve
 
-Environment overrides: FAIRLENS_SERVICE_HOST, FAIRLENS_SERVICE_PORT.
+Environment overrides: PORT, FAIRLENS_SERVICE_HOST, FAIRLENS_SERVICE_PORT.
 """
 
 from __future__ import annotations
@@ -17,8 +17,18 @@ from config_loader import load_config
 def main() -> None:
     config = load_config()
     service = config.get("service", {})
-    host = os.environ.get("FAIRLENS_SERVICE_HOST", str(service.get("host", "127.0.0.1")))
-    port = int(os.environ.get("FAIRLENS_SERVICE_PORT", service.get("port", 8020)))
+    port = int(
+        os.environ.get(
+            "PORT",
+            os.environ.get("FAIRLENS_SERVICE_PORT", service.get("port", 8020)),
+        )
+    )
+    default_host = (
+        "0.0.0.0"
+        if ("PORT" in os.environ or "RENDER" in os.environ)
+        else str(service.get("host", "127.0.0.1"))
+    )
+    host = os.environ.get("FAIRLENS_SERVICE_HOST", default_host)
     uvicorn.run("api.app:app", host=host, port=port, log_level="info")
 
 
