@@ -21,9 +21,11 @@ export interface ConnectForm {
   authEnvVar: string;
   healthPath: string;
   requestPath: string;
+  query: string;
   responseItems: string;
   approvedField: string;
   scoreField: string;
+  supportedProbes: string;
   probeCap: string;
 }
 
@@ -32,11 +34,98 @@ export const DEFAULT_FORM: ConnectForm = {
   authEnvVar: "",
   healthPath: "/health",
   requestPath: "/score_batch",
+  query: "",
   responseItems: "$",
   approvedField: "approved",
   scoreField: "score",
-  probeCap: "5000",
+  supportedProbes: "gender,pincode_group,name_group,intersectional",
+  probeCap: "100000",
 };
+
+export const KNOWN_PROBES = [
+  "gender",
+  "pincode_group",
+  "name_group",
+  "intersectional",
+] as const;
+
+export interface EndpointPreset {
+  id: string;
+  label: string;
+  detail: string;
+  form: ConnectForm;
+}
+
+/**
+ * Local endpoints that already speak the canonical applicant contract.
+ *
+ * Presets only fill the form. They are not a health claim: Start Audit still
+ * unlocks only after the server-side health check passes.
+ */
+export const ENDPOINT_PRESETS: EndpointPreset[] = [
+  {
+    id: "uci-credit-default",
+    label: "UCI credit default",
+    detail: "real model · 8030",
+    form: {
+      ...DEFAULT_FORM,
+      baseUrl: "http://127.0.0.1:8030",
+      query: "model=uci_credit_default",
+      supportedProbes: "gender",
+      probeCap: "100000",
+    },
+  },
+  {
+    id: "uci-adult-income",
+    label: "UCI Adult income",
+    detail: "real model · 8030",
+    form: {
+      ...DEFAULT_FORM,
+      baseUrl: "http://127.0.0.1:8030",
+      query: "model=adult_income",
+      supportedProbes: "gender",
+      probeCap: "100000",
+    },
+  },
+  {
+    id: "sandbox-model-2",
+    label: "Sandbox model 2",
+    detail: "synthetic · 8010",
+    form: {
+      ...DEFAULT_FORM,
+      baseUrl: "http://127.0.0.1:8010",
+      query: "model=2",
+      probeCap: "100000",
+    },
+  },
+];
+
+function parseQuery(value: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  for (const part of value.split("&")) {
+    const [rawKey, ...rest] = part.split("=");
+    const key = rawKey?.trim();
+    if (!key) continue;
+    try {
+      params[decodeURIComponent(key)] = decodeURIComponent(
+        rest.join("=").trim(),
+      );
+    } catch {
+      params[key] = rest.join("=").trim();
+    }
+  }
+  return params;
+}
+
+function parseProbes(value: string): string[] {
+  const wanted = new Set(
+    value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean),
+  );
+  return KNOWN_PROBES.filter((probe) => wanted.has(probe));
+}
 
 /** Build the inline adapter spec sent to POST /audits. */
 export function buildTargetSpec(form: ConnectForm): Record<string, unknown> {
@@ -45,6 +134,7 @@ export function buildTargetSpec(form: ConnectForm): Record<string, unknown> {
     Accept: "application/json",
   };
   const authEnvVar = form.authEnvVar.trim();
+  const query = parseQuery(form.query);
   return {
     name: "connected-endpoint",
     base_url: form.baseUrl.trim().replace(/\/+$/, ""),
@@ -53,6 +143,7 @@ export function buildTargetSpec(form: ConnectForm): Record<string, unknown> {
       method: "POST",
       path: form.requestPath.trim() || "/score_batch",
       headers,
+      ...(Object.keys(query).length > 0 ? { query } : {}),
       body: "${applicants}",
     },
     response: {
@@ -69,6 +160,12 @@ export function buildTargetSpec(form: ConnectForm): Record<string, unknown> {
     auth: authEnvVar
       ? { type: "header", header_name: "X-API-Key", token_env: authEnvVar }
       : { type: "none" },
+    // Without this block the adapter assumes every probe is defined, which
+    // fails on targets whose dataset has no region or name column.
+    capabilities: {
+      supported_probes: parseProbes(form.supportedProbes),
+      supports_mitigation: false,
+    },
   };
 }
 
@@ -94,6 +191,29 @@ export function ConnectEndpoint({ onStarted }: ConnectEndpointProps) {
   ) => {
     const value = event.target.value;
     setForm((previous) => ({ ...previous, [key]: value }));
+    setCheck(null);
+    setCheckedSignature(null);
+    setError(null);
+  };
+
+  const applyPreset = (preset: EndpointPreset) => {
+    setForm(preset.form);
+    setCheck(null);
+    setCheckedSignature(null);
+    setError(null);
+  };
+
+  const toggleProbe = (probe: string) => {
+    const active = new Set(parseProbes(form.supportedProbes));
+    if (active.has(probe)) {
+      active.delete(probe);
+    } else {
+      active.add(probe);
+    }
+    setForm((previous) => ({
+      ...previous,
+      supportedProbes: KNOWN_PROBES.filter((known) => active.has(known)).join(","),
+    }));
     setCheck(null);
     setCheckedSignature(null);
     setError(null);
@@ -159,6 +279,38 @@ export function ConnectEndpoint({ onStarted }: ConnectEndpointProps) {
       </CardHeader>
 
       <CardContent className="space-y-4 pt-5">
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="eyebrow">local demo endpoints</p>
+            <span className="font-mono text-[10px] uppercase tracking-[0.14em] text-muted/70">
+              fills the form · health check still required
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {ENDPOINT_PRESETS.map((preset) => {
+              const selected =
+                form.baseUrl === preset.form.baseUrl &&
+                form.query === preset.form.query;
+              return (
+                <Button
+                  key={preset.id}
+                  type="button"
+                  size="sm"
+                  variant={selected ? "secondary" : "outline"}
+                  aria-pressed={selected}
+                  onClick={() => applyPreset(preset)}
+                  className="gap-1.5"
+                >
+                  {preset.label}
+                  <span className="font-mono text-[9.5px] uppercase text-muted/70">
+                    {preset.detail}
+                  </span>
+                </Button>
+              );
+            })}
+          </div>
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
           <Field
             id="baseUrl"
@@ -221,6 +373,46 @@ export function ConnectEndpoint({ onStarted }: ConnectEndpointProps) {
           </p>
         </div>
 
+        <div className="grid gap-4 md:grid-cols-2">
+          <Field
+            id="query"
+            label="Query params (optional)"
+            value={form.query}
+            onChange={update("query")}
+            placeholder="model=uci_credit_default"
+            hint="Appended to every score request. Use key=value pairs separated by &."
+          />
+          <div className="space-y-1.5">
+            <Label>Supported probes</Label>
+            <div
+              role="group"
+              aria-label="Supported probes"
+              className="flex flex-wrap gap-1.5"
+            >
+              {KNOWN_PROBES.map((probe) => {
+                const active = parseProbes(form.supportedProbes).includes(probe);
+                return (
+                  <Button
+                    key={probe}
+                    type="button"
+                    size="sm"
+                    variant={active ? "secondary" : "outline"}
+                    aria-pressed={active}
+                    onClick={() => toggleProbe(probe)}
+                    className="font-mono text-[10.5px]"
+                  >
+                    {probe}
+                  </Button>
+                );
+              })}
+            </div>
+            <p className="text-[10.5px] leading-snug text-muted/75">
+              Only claim what the dataset can answer. Unlisted probes are skipped
+              with a reason instead of failing the audit.
+            </p>
+          </div>
+        </div>
+
         <div className="grid gap-4 sm:grid-cols-2">
           <Field
             id="healthPath"
@@ -236,7 +428,7 @@ export function ConnectEndpoint({ onStarted }: ConnectEndpointProps) {
             label="Probe cap (applicants)"
             value={form.probeCap}
             onChange={update("probeCap")}
-            placeholder="5000"
+            placeholder="100000"
             type="number"
             compact
             hint="A hard ceiling. The audit fails rather than exceed it."

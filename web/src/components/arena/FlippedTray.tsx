@@ -21,7 +21,12 @@ export function FlippedTray({ flips }: { flips: ProbeEvent[] }) {
           <p className="eyebrow text-danger/90">flipped tray</p>
           <h2 className="mt-1 text-[15px] font-semibold">Decisions that changed</h2>
         </div>
-        <Badge variant={flips.length > 0 ? "danger" : "outline"}>
+        <Badge
+          variant={flips.length > 0 ? "danger" : "outline"}
+          className={cn(
+            flips.length > 0 && "shadow-[0_0_12px_rgba(251,113,133,0.35)] animate-pulse",
+          )}
+        >
           {flips.length} kept
         </Badge>
       </div>
@@ -42,7 +47,7 @@ export function FlippedTray({ flips }: { flips: ProbeEvent[] }) {
           {flips.map((event) => (
             <li
               key={pairKey(event)}
-              className="rounded-lg border border-danger/25 bg-danger/[0.045] px-2.5 py-2"
+              className="rounded-lg border border-danger/30 bg-danger/[0.045] px-2.5 py-2 transition-colors hover:border-danger/50 animate-card-enter"
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-mono text-[10px] text-ink">

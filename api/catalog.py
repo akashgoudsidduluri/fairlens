@@ -289,6 +289,14 @@ def check_endpoint(
         raw_models = payload.get("models") if isinstance(payload, dict) else None
         if isinstance(raw_models, list):
             models = [str(item) for item in raw_models]
+        elif isinstance(raw_models, int) and not isinstance(raw_models, bool):
+            # The sandbox reports a count: {"models": 15}. Enumerate the model
+            # ids so the browser can show what is actually behind the endpoint.
+            if raw_models > 0:
+                shown = min(raw_models, 50)
+                models = [str(index) for index in range(1, shown + 1)]
+                if raw_models > shown:
+                    models.append(f"+{raw_models - shown} more")
     except ValueError:
         pass
     return EndpointCheckResponse(

@@ -364,6 +364,71 @@ class EndpointCheckResponse(ServiceModel):
     latency_ms: float
     models: list[str] = Field(default_factory=list)
 
+class ProxyFlip(ServiceModel):
+    """One counterfactual proxy estimate taken from the stored report."""
+
+    attribute: str
+    role: str
+    supported: bool
+    finding_id: str | None = None
+    status: str | None = None
+    net_flip_rate: float | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
+    p_adjusted: float | None = None
+    n: int | None = None
+    reason: str | None = None
+
+
+class Hotspot(ServiceModel):
+    """One generalized treatment x context finding, kept or rejected."""
+
+    finding_id: str | None = None
+    treatment: str | None = None
+    treatment_level: str | None = None
+    context: dict[str, str] = Field(default_factory=dict)
+    net_flip_rate: float | None = None
+    ci_low: float | None = None
+    ci_high: float | None = None
+    p_adjusted: float | None = None
+    n: int | None = None
+    status: str | None = None
+    merged_into: str | None = None
+
+
+class Decomposition(ServiceModel):
+    """Naive gap vs twin gap for one anchor attribute.
+
+    ``confounding_shift`` is ``counterfactual_gap - observed_gap``. It is a
+    difference of two measured rates, not a share, and may exceed 1.0.
+    """
+
+    finding_id: str | None = None
+    attribute: str
+    target_group: str | None = None
+    comparison_group: str | None = None
+    observed_gap: float
+    counterfactual_gap: float
+    confounding_shift: float
+    direction: Literal[
+        "explained", "reversal", "hidden", "same_direction", "no_gap"
+    ]
+    direction_note: str
+    materiality: float
+    n: int | None = None
+    note: str
+
+
+class ComplexAnalysis(ServiceModel):
+    audit_id: str
+    model_id: int | None = None
+    protocol: Literal["generalized", "single", "unknown"]
+    proxy: list[ProxyFlip]
+    hotspots: list[Hotspot]
+    decomposition: Decomposition | None = None
+    notes: list[str] = Field(default_factory=list)
+
+
 UserRole = Literal["AUDITOR", "ML_ENG", "REGULATOR"]
 
 

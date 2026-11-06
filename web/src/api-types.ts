@@ -74,6 +74,16 @@ export interface CertificateList {
   count: number;
 }
 
+export interface ComplexAnalysis {
+  audit_id: string;
+  model_id?: number | null;
+  protocol: "generalized" | "single" | "unknown";
+  proxy: ProxyFlip[];
+  hotspots: Hotspot[];
+  decomposition?: Decomposition | null;
+  notes?: string[];
+}
+
 export interface DecisionInfo {
   approver: string;
   decision: "approve" | "reject";
@@ -97,6 +107,21 @@ export interface DecisionRequest {
 export interface DecisionResponse {
   audit: AuditRecord;
   certificate: Certificate;
+}
+
+export interface Decomposition {
+  finding_id?: string | null;
+  attribute: string;
+  target_group?: string | null;
+  comparison_group?: string | null;
+  observed_gap: number;
+  counterfactual_gap: number;
+  confounding_shift: number;
+  direction: "explained" | "reversal" | "hidden" | "same_direction" | "no_gap";
+  direction_note: string;
+  materiality: number;
+  n?: number | null;
+  note: string;
 }
 
 export interface EndpointCheckRequest {
@@ -174,6 +199,20 @@ export interface HealthResponse {
   version?: string;
 }
 
+export interface Hotspot {
+  finding_id?: string | null;
+  treatment?: string | null;
+  treatment_level?: string | null;
+  context?: Record<string, string>;
+  net_flip_rate?: number | null;
+  ci_low?: number | null;
+  ci_high?: number | null;
+  p_adjusted?: number | null;
+  n?: number | null;
+  status?: string | null;
+  merged_into?: string | null;
+}
+
 export interface ImpactEstimate {
   finding_id: string;
   subgroup: string;
@@ -211,6 +250,20 @@ export interface ProbeEvent {
   ci_high_running: number;
   ci_method?: string;
   timestamp?: string;
+}
+
+export interface ProxyFlip {
+  attribute: string;
+  role: string;
+  supported: boolean;
+  finding_id?: string | null;
+  status?: string | null;
+  net_flip_rate?: number | null;
+  ci_low?: number | null;
+  ci_high?: number | null;
+  p_adjusted?: number | null;
+  n?: number | null;
+  reason?: string | null;
 }
 
 export interface RealEvidence {

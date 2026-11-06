@@ -27,6 +27,8 @@ import type {
   ImpactEstimate,
 } from "@/api-types";
 import { CertificateCard } from "@/components/report/CertificateCard";
+import { DecompositionWaterfall } from "@/components/report/DecompositionWaterfall";
+import { ProxyVulnerabilityCard } from "@/components/report/ProxyVulnerabilityCard";
 import { SearchPanel } from "@/components/report/SearchPanel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,6 +37,7 @@ import { Label } from "@/components/ui/label";
 import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 import { signedPercent } from "@/lib/arena";
+import { buildComplexAnalysis } from "@/lib/complex";
 import {
   checkLabel,
   findingTitle,
@@ -797,6 +800,7 @@ export function ReportPanel({
     () => skepticReviews(agentEvents),
     [agentEvents],
   );
+  const complex = React.useMemo(() => buildComplexAnalysis(report), [report]);
 
   return (
     <div id="report" className="mt-8 scroll-mt-24">
@@ -860,6 +864,11 @@ export function ReportPanel({
           <ImpactPanel impact={report.impact ?? []} />
           <SignOff record={record} onDecided={onDecided} readOnly={mode === "replay"} />
         </div>
+      </div>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <DecompositionWaterfall analysis={complex} />
+        <ProxyVulnerabilityCard analysis={complex} />
       </div>
 
       <div className="mt-4 grid gap-4">

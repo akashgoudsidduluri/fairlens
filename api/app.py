@@ -34,6 +34,7 @@ from trust.certificate import (
 
 from api.jobs import AuditJobManager
 from api.catalog import build_catalog, check_endpoint
+from api.complex import build_complex_analysis
 from api.evidence import build_evidence, results_directory
 from api.replays import (
     export_replay,
@@ -47,6 +48,7 @@ from api.schemas import (
     AuditCreated,
     AuditRecord,
     CertificateList,
+    ComplexAnalysis,
     LoginRequest,
     LoginResponse,
     UserProfile,
@@ -433,6 +435,30 @@ def create_app(
         if record is None:
             raise HTTPException(status_code=404, detail="audit not found")
         return _record_response(record, replays_path)
+
+    @app.get(
+        "/audits/{audit_id}/complex-analysis",
+        response_model=ComplexAnalysis,
+        tags=["audits"],
+    )
+    def complex_analysis(audit_id: str) -> ComplexAnalysis:
+        """Proxy flips, generalized hotspots, and the naive-vs-twin gap.
+
+        Derived from the stored report only: this endpoint never calls the
+        target and never invents a measurement for an unprobed attribute.
+        """
+
+        record = audit_store.get_audit(audit_id)
+        if record is None:
+            raise HTTPException(status_code=404, detail="audit not found")
+        if record["status"] != "completed":
+            raise HTTPException(
+                status_code=409,
+                detail=f"audit is {record['status']}, not completed",
+            )
+        if record.get("result") is None:
+            raise HTTPException(status_code=409, detail="audit has no report")
+        return ComplexAnalysis.model_validate(build_complex_analysis(record))
 
     @app.get(
         "/audits/{audit_id}/events",

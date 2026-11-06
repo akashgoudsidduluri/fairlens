@@ -124,7 +124,9 @@ export function BudgetPanel({
           <div
             className={cn(
               "h-full rounded-full transition-[width] duration-500",
-              percent >= 90 ? "bg-danger" : "bg-accent",
+              percent >= 90
+                ? "bg-danger shadow-[0_0_8px_rgba(251,113,133,0.5)]"
+                : "bg-gradient-to-r from-accent/80 to-accent shadow-[0_0_10px_rgba(94,234,212,0.45)]",
             )}
             style={{ width: `${percent}%` }}
           />

@@ -108,6 +108,14 @@
   .eyebrow {
     @apply font-mono text-[10px] uppercase tracking-[0.22em] text-accent;
   }
+
+  .radar-grid {
+    background-image:
+      radial-gradient(circle at center, rgba(94, 234, 212, 0.07) 0%, transparent 65%),
+      linear-gradient(to right, rgba(94, 234, 212, 0.035) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(94, 234, 212, 0.035) 1px, transparent 1px);
+    background-size: 100% 100%, 28px 28px, 28px 28px;
+  }
 }
 
 /* Thin forensic scrollbars for event trays. */
